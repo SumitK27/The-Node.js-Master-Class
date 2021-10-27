@@ -1,28 +1,35 @@
 # **Table of Content** <!-- omit in toc -->
 
 1. [**Background Information**](#background-information)
-    1. [**History of Node**](#history-of-node)
-        1. [**2009**](#2009)
-        2. [**2010**](#2010)
-        3. [**2011**](#2011)
-        4. [**2012**](#2012)
-        5. [**2015**](#2015)
-    2. [**V8**](#v8)
-    3. [**What is NodeJS?**](#what-is-nodejs)
-    4. [**Anatomy of NodeJS Application**](#anatomy-of-nodejs-application)
-    5. [**Common Node Conventions**](#common-node-conventions)
-        1. [`package.json`](#packagejson)
-        2. [`package-lock.json`](#package-lockjson)
-        3. [`Importing packages`](#importing-packages)
-        4. [`Testing`](#testing)
-        5. [`Documentation & Source Control`](#documentation--source-control)
-        6. [`Environments & Configuration`](#environments--configuration)
-        7. [`Styles and Patterns`](#styles-and-patterns)
-        8. [`Error Handling`](#error-handling)
-    6. [**NodeJS vs Browser/Window**](#nodejs-vs-browserwindow)
-        1. [`Possible only in Browser`](#possible-only-in-browser)
-        2. [`Possible with Node`](#possible-with-node)
+   1. [**History of Node**](#history-of-node)
+      1. [**2009**](#2009)
+      2. [**2010**](#2010)
+      3. [**2011**](#2011)
+      4. [**2012**](#2012)
+      5. [**2015**](#2015)
+   2. [**V8**](#v8)
+   3. [**What is NodeJS?**](#what-is-nodejs)
+   4. [**Anatomy of NodeJS Application**](#anatomy-of-nodejs-application)
+   5. [**Common Node Conventions**](#common-node-conventions)
+      1. [`package.json`](#packagejson)
+      2. [`package-lock.json`](#package-lockjson)
+      3. [`Importing packages`](#importing-packages)
+      4. [`Testing`](#testing)
+      5. [`Documentation & Source Control`](#documentation--source-control)
+      6. [`Environments & Configuration`](#environments--configuration)
+      7. [`Styles and Patterns`](#styles-and-patterns)
+      8. [`Error Handling`](#error-handling)
+   6. [**NodeJS vs Browser/Window**](#nodejs-vs-browserwindow)
+      1. [`Possible only in Browser`](#possible-only-in-browser)
+      2. [`Possible with Node`](#possible-with-node)
 2. [**RESTful API**](#restful-api)
+   1. [**Creating a Server**](#creating-a-server)
+   2. [**Parsing Request Paths**](#parsing-request-paths)
+   3. [**Parsing HTTP Methods**](#parsing-http-methods)
+   4. [**Parsing Query Strings**](#parsing-query-strings)
+   5. [**Parsing Request Headers**](#parsing-request-headers)
+   6. [**Parsing Payloads**](#parsing-payloads)
+   7. [**Routing Requests**](#routing-requests)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -363,6 +370,275 @@ API should allow:
 5. Allows a signed-in user to use their token to create a new "Check" (Limited to 5).
 6. Allows a signed-in user to edit or delete any of their checks.
 7. In the background, workers perform all the "Checks" at the appropriate times, and send alerts to the users when a check changes its state from "Up" to "Down", or vise versa.
+
+## **Creating a Server**
+
+`index.js`
+
+```javascript
+// Dependencies
+var http = require("http");
+
+// The server should respond to all requests with a string
+var server = http.createServer(function (req, res) {
+    res.end("Hello World\n");
+});
+
+// Start the server, and have it listen on port 3000
+server.listen(3000, function () {
+    console.log("The server is listening on port 3000 now");
+});
+```
+
+Run: `node index.js`
+Test: `curl localhost:3000`
+
+## **Parsing Request Paths**
+
+`index.js`
+
+```javascript
+...
+var url = require("url");
+
+// The server should respond to all requests with a string
+var server = http.createServer(function (req, res) {
+    // Get the URL and parse it
+    var parsedUrl = url.parse(req.url, true);
+
+    // Get the path
+    var path = parsedUrl.pathname; // gives untrimmed path eg. `/foo/`
+    // trim slashes eg.`/foo/ -> foo` & `/foo/bar -> foo/bar`
+    var trimmedPath = path.replace(/\/+|\/+$/g, "");
+
+    // Send the response
+    res.end("Hello World\n");
+
+    // Log the request path
+    console.log("Request is received on path: " + trimmedPath);
+});
+...
+```
+
+Run: `node index.js`
+Test:
+`curl localhost:3000` -> `Request is received on path: `
+`curl localhost:3000/foo` -> `Request is received on path: foo`
+`curl localhost:3000/foo/bar` -> `Request is received on path: foo/bar`
+
+## **Parsing HTTP Methods**
+
+`index.js`
+
+```javascript
+...
+// Get the HTTP method
+var method = req.method.toLowerCase();
+
+...
+
+// Log the request path
+console.log("Request is received on path: " + trimmedPath + " with method: " + method);
+...
+```
+
+Run: `node index.js`
+Test: `curl localhost:3000/foo?fizz=buzz` ->
+
+**Output**
+`Request is received on path: foo with method: get`
+
+## **Parsing Query Strings**
+
+`index.js`
+
+```javascript
+...
+// Get the query string as an object
+var queryString = parsedUrl.query;
+
+...
+
+// Log the request path
+console.log(
+    "Request is received on path: " +
+        trimmedPath +
+        " with method: " +
+        method +
+        " and with these query string parameters ",
+    queryString
+);
+
+...
+```
+
+Run: `node index.js`
+Test: `curl localhost:3000/foo?fizz=buzz` ->
+**Output**
+`Request is received on path: foo with method: get and with these query string parameters [Object: null prototype] { fizz: 'buzz' }`
+
+## **Parsing Request Headers**
+
+`index.js`
+
+```javascript
+// Get the Headers as an object
+var headers = req.headers;
+...
+// Log the request path
+console.log("Request is received with these headers ", headers);
+```
+
+Run: `node index.js`
+Test: Launch Postman, write a get request to `localhost:3000` and add headers as `foo: bar`, `fizz: buzz`, `apples: oranges`, `red: blue`
+**Output**
+
+```
+Request is received with these headers
+{
+  foo: 'bar',
+  fizz: 'buzz',
+  apples: 'oranges',
+  red: 'blue',
+  'cache-control': 'no-cache',
+  'postman-token': 'ce8cc114-1e50-4777-9395-16cfeaf3a506'
+}
+```
+
+## **Parsing Payloads**
+
+`index.js`
+
+```javascript
+// Dependencies
+...
+var stringDecoder = require("string_decoder").StringDecoder;
+
+// The server should respond to all requests with a string
+var server = http.createServer(function (req, res) {
+    ...
+
+    // Get the payload, if any
+    var decoder = new stringDecoder("utf-8");
+    var buffer = ""; // buffer for a payload
+    // get new data on the request on data object
+    req.on("data", function (data) {
+        // use decoder to convert that data into a simple string
+        buffer += decoder.write(data);
+    });
+    // end the request by closing buffer and sending response
+    req.on("end", function () {
+        buffer += decoder.end();
+
+        // Send the response
+        res.end("Hello World\n");
+
+        // Log the request path
+        console.log(
+            "Request is received on path: " +
+                trimmedPath +
+                " with method: " +
+                method +
+                " and with these query string parameters ",
+            queryString,
+            " header ",
+            headers,
+            " and payload ",
+            buffer
+        );
+    });
+});
+...
+```
+
+Run: `node index.js`
+Test: Launch Postman, write a get request to `localhost:3000` navigate to the Body, select the `raw` as `Text` and add any text inside the body as payload eg. `This is the body we are sending`
+**Output**
+
+```
+Request is received on path:  with method: post and with these query string parameters  [Object: null prototype] {}  header  {
+  'content-type': 'text/plain',
+  'cache-control': 'no-cache',
+  'postman-token': 'e1a6bd1b-fbfd-422f-abe6-6e9c90d58557',
+  'content-length': '32'
+}  and payload  This is the body we are sending.
+```
+
+## **Routing Requests**
+
+`index.js`
+
+```javascript
+// The server should respond to all requests with a string
+var server = http.createServer(function (req, res) {
+    ...
+    // end the request by closing buffer and sending response
+    req.on("end", function () {
+        buffer += decoder.end();
+
+        // Choose the handler this request should go to. If one not found, use the notFound handler.
+        var chosenHandler =
+            typeof router[trimmedPath] !== "undefined"
+                ? router[trimmedPath]
+                : handlers.notFound;
+        // Construct data object to send to the handler
+        var data = {
+            trimmedPath: trimmedPath,
+            queryString: queryString,
+            method: method,
+            headers: headers,
+            payload: buffer,
+        };
+
+        // Route the request to the handler specified in the router
+        chosenHandler(data, function (statusCode, payload) {
+            // Use the status code called by the handler, or default to 200
+            statusCode = typeof statusCode == "number" ? statusCode : 200;
+
+            // Use the payload called by handler, or default to an empty object
+            payload = typeof payload == "object" ? payload : {};
+
+            // Convert the payload to a string
+            var payloadString = JSON.stringify(payload);
+
+            // Return the response
+            res.setHeader("Content-Type", "application/json");
+            res.writeHead(statusCode);
+            res.end(payloadString);
+
+            // Log the request
+            console.log("Returning this response: ", statusCode, payloadString);
+        });
+    });
+});
+
+// Define the handlers
+var handlers = {};
+
+// Sample handler
+handlers.sample = function (data, callback) {
+    // callback a http status code, and a payload object
+    callback(406, { name: "sample handler" });
+};
+
+// Not found handler
+handlers.notFound = function (data, callback) {
+    callback(404);
+};
+
+// Define a request router
+var router = {
+    sample: handlers.sample,
+};
+
+```
+
+Run: `node index.js`
+Test: Launch Postman, write a get request to `localhost:3000`, `localhost:3000/sample` & `localhost:3000/sample/foo`
+**Output**
+`localhost:3000` -> `Returning this response: 404 {}`
+`localhost:3000/sample` -> `Returning this response: 406 {"name":"sample handler"}`
+`localhost:3000/sample/foo` -> `Returning this response: 404 {}`
 
 # **GUI**
 
