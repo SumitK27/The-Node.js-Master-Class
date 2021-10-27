@@ -30,6 +30,7 @@
    5. [**Parsing Request Headers**](#parsing-request-headers)
    6. [**Parsing Payloads**](#parsing-payloads)
    7. [**Routing Requests**](#routing-requests)
+   8. [**Adding Configuration**](#adding-configuration)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -639,6 +640,70 @@ Test: Launch Postman, write a get request to `localhost:3000`, `localhost:3000/s
 `localhost:3000` -> `Returning this response: 404 {}`
 `localhost:3000/sample` -> `Returning this response: 406 {"name":"sample handler"}`
 `localhost:3000/sample/foo` -> `Returning this response: 404 {}`
+
+## **Adding Configuration**
+
+`config.js`
+
+```javascript
+/*
+ * Create and export configuration variables
+ */
+
+// Container for all the environments
+var environments = {};
+
+// Staging (default) environment
+environments.staging = {
+    port: 3000,
+    envName: "staging",
+};
+
+// Production environment
+environments.production = {
+    port: 5000,
+    envName: "production",
+};
+
+// Determine which environment was passed as a command-line argument
+var currentEnvironment =
+    typeof process.env.NODE_ENV == "string"
+        ? process.env.NODE_ENV.toLowerCase()
+        : "";
+
+// Check that the current environment is one of the environment above, if not, default to staging
+var environmentToExport =
+    typeof environments[currentEnvironment] == "object"
+        ? environments[currentEnvironment]
+        : environments.staging;
+
+// Export the module
+module.exports = environmentToExport;
+```
+
+`index.js`
+
+```javascript
+var config = require("./config");
+...
+// Start the server
+server.listen(config.port, function () {
+    console.log(
+        "The server is listening on port " +
+            config.port +
+            " in " +
+            config.envName +
+            " mode"
+    );
+});
+...
+```
+
+Run: `node index.js` and `NODE_ENV=production node index.js`
+
+**Output**
+`node index.js` -> `The server is listening on port 3000 in staging`
+`NODE_ENV=production node index.js` -> `The server is listening on port 5000 in production`
 
 # **GUI**
 
