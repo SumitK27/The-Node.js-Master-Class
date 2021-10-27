@@ -123,6 +123,11 @@ handlers.sample = (data, callback) => {
     callback(406, { name: "Sample Handler" });
 };
 
+// Ping handler
+handlers.ping = function (data, callback) {
+    callback(200);
+};
+
 // Not found handler
 handlers.notFound = (data, callback) => {
     callback(404);
@@ -131,4 +136,5 @@ handlers.notFound = (data, callback) => {
 // Define a request router
 const router = {
     sample: handlers.sample,
+    ping: handlers.ping,
 };

@@ -33,6 +33,7 @@
    8. [**Adding Configuration**](#adding-configuration)
    9. [**Adding HTTPS Support**](#adding-https-support)
       1. [**Create a SSL key**](#create-a-ssl-key)
+   10. [**Add a ping route**](#add-a-ping-route)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -918,6 +919,28 @@ Returning this response:  406 {"name":"sample handler"}
 The server is listening on port 3000 in staging mode
 The server is listening on port 3001 in staging mode
 ```
+
+## **Add a ping route**
+
+`index.js`
+
+```javascript
+...
+// Ping handler
+handlers.ping = function (data, callback) {
+    callback(200);
+};
+...
+// Define a request router
+var router = {
+    ...
+    ping: handlers.ping,
+};
+```
+
+**Run:** `node index.js`
+**Test:** Open `localhost:3000/ping`
+**Output:** Response `{}` with status code 200.
 
 # **GUI**
 
