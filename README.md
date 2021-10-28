@@ -953,6 +953,7 @@ var router = {
 mkdir .data
 mkdir lib
 touch lib/data.js
+mkdir .data/test
 ```
 
 **For testing purpose**
