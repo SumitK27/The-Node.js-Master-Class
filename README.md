@@ -34,6 +34,11 @@
    9. [**Adding HTTPS Support**](#adding-https-support)
       1. [**Create a SSL key**](#create-a-ssl-key)
    10. [**Add a ping route**](#add-a-ping-route)
+   11. [**Storing Data**](#storing-data)
+         1. [**Creating file and storing data**](#creating-file-and-storing-data)
+         2. [**Reading Data**](#reading-data)
+         3. [**Updating Data**](#updating-data)
+         4. [**Deleting File**](#deleting-file)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -941,6 +946,79 @@ var router = {
 **Run:** `node index.js`
 **Test:** Open `localhost:3000/ping`
 **Output:** Response `{}` with status code 200.
+
+## **Storing Data**
+
+```bash
+mkdir .data
+mkdir lib
+touch lib/data.js
+```
+
+**For testing purpose**
+
+#### **Creating file and storing data**
+
+`index.js`
+
+```javascript
+...
+var _data = require("./lib/data");
+
+_data.create("test", "newFile", { foo: "bar" }, function (err) {
+    console.log("This was the error ", err);
+});
+...
+```
+
+**Run:** `node index.js` twice
+**Output:**
+`This was the error false`
+`This was the error Could not read new file, it may already exist`
+
+#### **Reading Data**
+
+`index.js`
+
+```javascript
+...
+_data.read("test", "newFile", function (err, data) {
+    console.log("This was the error ", err, " and this was the data ", data);
+});
+...
+```
+
+**Run:** `node index.js`
+**Output:** `This was the error null and this was the data {"foo":"bar"}`
+
+#### **Updating Data**
+
+`index.js`
+
+```javascript
+...
+_data.update("test", "newFile", { fizz: "buzz" }, function (err) {
+    console.log("This was the error ", err);
+});
+...
+```
+
+**Run:** `node index.js`
+
+#### **Deleting File**
+
+`index.js`
+
+```javascript
+...
+_data.delete("test", "newFile", function (err) {
+    console.log("This was the error ", err);
+});
+...
+```
+
+**Run:** `node index.js`
+**Output** `This was the error false`
 
 # **GUI**
 
