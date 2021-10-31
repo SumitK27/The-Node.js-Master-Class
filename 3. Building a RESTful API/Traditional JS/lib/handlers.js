@@ -328,6 +328,30 @@ handlers._tokens.post = function (data, callback) {
     }
 };
 
+// Tokens - GET
+// Required data: id
+// Optional data: none
+handlers._tokens.get = function (data, callback) {
+    // Check that the sent ID is valid
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+    if (id) {
+        // Lookup the user
+        _data.read("tokens", id, function (err, tokenData) {
+            if (!err && tokenData) {
+                callback(200, tokenData);
+            } else {
+                callback(404);
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+
 // Not found handler
 handlers.notFound = function (data, callback) {
     callback(404);

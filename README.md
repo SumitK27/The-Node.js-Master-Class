@@ -41,7 +41,8 @@
          4. [**Deleting File**](#deleting-file)
    12. [**Users**](#users)
    13. [**Tokens**](#tokens)
-      1. [**Creating a Token**](#creating-a-token)
+         1. [**Creating a Token**](#creating-a-token)
+         2. [**Getting a Token**](#getting-a-token)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1398,7 +1399,7 @@ var router = {
 
 ## **Tokens**
 
-### **Creating a Token**
+#### **Creating a Token**
 
 `index.js`
 
@@ -1525,6 +1526,52 @@ Body -
     "password": "thisIsAPassword"
 }
 ```
+
+**Output**
+
+```json
+{
+    "phone": "5551234568",
+    "id": "hzk5vl8apqkbulkgpbvi",
+    "expires": 1635704906329
+}
+```
+
+#### **Getting a Token**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Tokens - GET
+// Required data: id
+// Optional data: none
+handlers._tokens.get = function (data, callback) {
+    // Check that the sent ID is valid
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+    if (id) {
+        // Lookup the user
+        _data.read("tokens", id, function (err, tokenData) {
+            if (!err && tokenData) {
+                callback(200, tokenData);
+            } else {
+                callback(404);
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+...
+```
+
+**Testing**
+Method - `GET`
+Endpoint - `localhost:3000/tokens?id=hzk5vl8apqkbulkgpbvi`
 
 **Output**
 
