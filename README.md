@@ -39,6 +39,7 @@
          2. [**Reading Data**](#reading-data)
          3. [**Updating Data**](#updating-data)
          4. [**Deleting File**](#deleting-file)
+   12. [**Users**](#users)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1020,6 +1021,378 @@ _data.delete("test", "newFile", function (err) {
 
 **Run:** `node index.js`
 **Output** `This was the error false`
+
+## **Users**
+
+`lib/config.js`
+
+```javascript
+// Staging (default) environment
+environments.staging = {
+    ...
+    hashingSecret: "thisIsASecret",
+};
+
+// Production environment
+environments.production = {
+    ...
+    hashingSecret: "thisIsAlsoASecret",
+};
+```
+
+`lib/data.js`
+
+```javascript
+...
+// Read data from a file
+lib.read = function (dir, file, callback) {
+    fs.readFile(
+        lib.baseDir + dir + "/" + file + ".json",
+        "utf8",
+        function (err, data) {
+            if (!err && data) {
+                var parsedData = helpers.parseJsonToObject(data);
+                callback(false, parsedData);
+            } else {
+                callback(err, data);
+            }
+        }
+    );
+};
+...
+```
+
+`lib/handlers.js`
+
+```javascript
+/*
+ * This are the request handlers
+ */
+
+// Dependencies
+var _data = require("./data");
+var helpers = require("./helpers");
+
+// Define the handlers
+var handlers = {};
+
+// Sample handler
+handlers.sample = function (data, callback) {
+    // callback a http status code, and a payload object
+    callback(406, { name: "sample handler" });
+};
+
+// Ping handler
+handlers.ping = function (data, callback) {
+    callback(200);
+};
+
+// Users
+handlers.users = function (data, callback) {
+    var acceptableMethods = ["post", "get", "put", "delete"];
+    if (acceptableMethods.indexOf(data.method) > -1) {
+        handlers._users[data.method](data, callback);
+    } else {
+        callback(405);
+    }
+};
+
+// Container for all the users methods
+handlers._users = {};
+
+// Users - POST
+// Required data: firstName, lastName, phone, password, tosAgreement
+// Optional data: none
+handlers._users.post = function (data, callback) {
+    // Check that all required fields are filled out
+    var firstName =
+        typeof data.payload.firstName == "string" &&
+        data.payload.firstName.trim().length > 0
+            ? data.payload.firstName.trim()
+            : false;
+    var lastName =
+        typeof data.payload.lastName == "string" &&
+        data.payload.lastName.trim().length > 0
+            ? data.payload.lastName.trim()
+            : false;
+    var phone =
+        typeof data.payload.phone == "string" &&
+        data.payload.phone.trim().length == 10
+            ? data.payload.phone.trim()
+            : false;
+    var password =
+        typeof data.payload.password == "string" &&
+        data.payload.password.trim().length > 0
+            ? data.payload.password.trim()
+            : false;
+    var tosAgreement =
+        typeof data.payload.tosAgreement == "boolean" &&
+        data.payload.tosAgreement == true
+            ? true
+            : false;
+
+    if (firstName && lastName && phone && password && tosAgreement) {
+        // Make sure that the user doesn't already exists
+        _data.read("users", phone, function (err, data) {
+            if (firstName && lastName && phone && password && tosAgreement) {
+                // Make sure the user doesn't already exist
+                _data.read("users", phone, function (err, data) {
+                    if (err) {
+                        // Hash the password
+                        var hashedPassword = helpers.hash(password);
+
+                        // Create the user object
+                        if (hashedPassword) {
+                            var userObject = {
+                                firstName: firstName,
+                                lastName: lastName,
+                                phone: phone,
+                                hashedPassword: hashedPassword,
+                                tosAgreement: true,
+                            };
+
+                            // Store the user
+                            _data.create(
+                                "users",
+                                phone,
+                                userObject,
+                                function (err) {
+                                    if (!err) {
+                                        callback(200);
+                                    } else {
+                                        console.log(err);
+                                        callback(500, {
+                                            Error: "Could not create the new user",
+                                        });
+                                    }
+                                }
+                            );
+                        } else {
+                            callback(500, {
+                                Error: "Could not hash the user's password.",
+                            });
+                        }
+                    } else {
+                        // User already exists
+                        callback(400, {
+                            Error: "A user with that phone number already exists",
+                        });
+                    }
+                });
+            } else {
+                callback(400, { Error: "Missing required fields" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required fields" });
+    }
+};
+
+// Users - GET
+// Required data: phone
+// Optional data: none
+// TODO Only let an authenticated user access their object. Dont let them access anyone elses.
+handlers._users.get = function (data, callback) {
+    // Check that phone number is valid
+    var phone =
+        typeof data.queryString.phone == "string" &&
+        data.queryString.phone.trim().length == 10
+            ? data.queryString.phone.trim()
+            : false;
+    if (phone) {
+        // Lookup the user
+        _data.read("users", phone, function (err, data) {
+            if (!err && data) {
+                // Remove the hashed password from the user user object before returning it to the requester
+                delete data.hashedPassword;
+                callback(200, data);
+            } else {
+                callback(404);
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+
+// Users - PUT
+// Required data: phone
+// Optional data: firstName, lastName, password (at least one must be specified)
+// TODO Only let an authenticated user up their object. Dont let them access update elses.
+handlers._users.put = function (data, callback) {
+    // Check for required field
+    var phone =
+        typeof data.payload.phone == "string" &&
+        data.payload.phone.trim().length == 10
+            ? data.payload.phone.trim()
+            : false;
+
+    // Check for optional fields
+    var firstName =
+        typeof data.payload.firstName == "string" &&
+        data.payload.firstName.trim().length > 0
+            ? data.payload.firstName.trim()
+            : false;
+    var lastName =
+        typeof data.payload.lastName == "string" &&
+        data.payload.lastName.trim().length > 0
+            ? data.payload.lastName.trim()
+            : false;
+    var password =
+        typeof data.payload.password == "string" &&
+        data.payload.password.trim().length > 0
+            ? data.payload.password.trim()
+            : false;
+
+    // Error if phone is invalid
+    if (phone) {
+        // Error if nothing is sent to update
+        if (firstName || lastName || password) {
+            // Lookup the user
+            _data.read("users", phone, function (err, userData) {
+                if (!err && userData) {
+                    // Update the fields if necessary
+                    if (firstName) {
+                        userData.firstName = firstName;
+                    }
+                    if (lastName) {
+                        userData.lastName = lastName;
+                    }
+                    if (password) {
+                        userData.password = password;
+                    }
+
+                    // Store the new updates
+                    _data.update("users", phone, userData, function (err) {
+                        if (!err) {
+                            callback(200);
+                        } else {
+                            console.log(err);
+                            callback(500, {
+                                Error: "Could not update the user.",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, { Error: "Specified user does not exists." });
+                }
+            });
+        } else {
+            callback(400, { Error: "Missing fields to update." });
+        }
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+
+// Users - DELETE
+// Required data: phone
+// TODO Only let an authenticated user delete their object. Dont let them delete update elses.
+// TODO Cleanup (delete) any other data files associated with the user
+handlers._users.delete = function (data, callback) {
+    // Check that phone number is valid
+    var phone =
+        typeof data.queryString.phone == "string" &&
+        data.queryString.phone.trim().length == 10
+            ? data.queryString.phone.trim()
+            : false;
+
+    if (phone) {
+        // Lookup the user
+        _data.read("users", phone, function (err, data) {
+            if (!err && data) {
+                _data.delete("users", phone, function (err) {
+                    if (!err) {
+                        callback(200);
+                    } else {
+                        callback(500, {
+                            Error: "Could not delete the specified user",
+                        });
+                    }
+                });
+            } else {
+                callback(400, { Error: "Could not find the specified user." });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+
+// Not found handler
+handlers.notFound = function (data, callback) {
+    callback(404);
+};
+
+// Export Module
+module.exports = handlers;
+```
+
+`index.js`
+
+```javascript
+...
+var config = require("./lib/config");
+var handlers = require("./lib/handlers");
+var helpers = require("./lib/helpers");
+...
+// All the server logic for both the http and https server
+var unifiedServer = function (req, res) {
+    ...
+    // end the request by closing buffer and sending response
+    req.on("end", function () {
+        ...
+        // Construct data object to send to the handler
+        var data = {
+            ...
+            payload: helpers.parseJsonToObject(buffer),
+        };
+    });
+};
+
+// Define a request router
+var router = {
+    sample: handlers.sample,
+    ping: handlers.ping,
+    users: handlers.users,
+};
+```
+
+**Testing** Open Postman and create the requests with the following payloads (Body)
+
+1. **Creating a User**
+   Endpoint - `localhost:3000/users`
+   Method - `POST`
+   Body -
+
+    ```json
+    {
+        "firstName": "John",
+        "lastName": "Doe",
+        "phone": "5551234567",
+        "password": "thisIsAPassword",
+        "tosAgreement": true
+    }
+    ```
+
+2. **Get a User**
+   Endpoint - `localhost:3000/users?phone=5551234567`
+   Method - `GET`
+
+3. **Updating a User**
+   Endpoint - `localhost:3000/users`
+   Method - `PUT`
+   Body -
+    ```json
+    {
+        "firstName": "Agnethe",
+        "lastName": "Ó Domhnaill",
+        "phone": "5551234567"
+    }
+    ```
+4. **Delete a User**
+   Endpoint - `localhost:3000/users?phone=5551234569`
+   Method - `POST`
 
 # **GUI**
 
