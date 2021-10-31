@@ -402,7 +402,37 @@ handlers._tokens.put = function (data, callback) {
 };
 
 // Tokens - DELETE
-handlers._tokens.delete = function (data, callback) {};
+// Required data: id (string)
+// Optional data: none
+handlers._tokens.delete = function (data, callback) {
+    // Check that the ID is valid
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the token
+        _data.read("tokens", id, function (err, data) {
+            if (!err && data) {
+                _data.delete("tokens", id, function (err) {
+                    if (!err) {
+                        callback(200);
+                    } else {
+                        callback(500, {
+                            Error: "Could not delete the specified token",
+                        });
+                    }
+                });
+            } else {
+                callback(400, { Error: "Could not find the specified token." });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
 
 // Not found handler
 handlers.notFound = function (data, callback) {

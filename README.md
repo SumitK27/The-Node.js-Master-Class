@@ -44,6 +44,7 @@
          1. [**Creating a Token**](#creating-a-token)
          2. [**Getting a Token**](#getting-a-token)
          3. [**Updating a Token**](#updating-a-token)
+         4. [**Deleting a Token**](#deleting-a-token)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1698,6 +1699,55 @@ Body -
     "expires": 1635707364862
 }
 ```
+
+#### **Deleting a Token**
+
+`lib/handlers.js`
+
+```javascript
+...
+
+// Tokens - DELETE
+// Required data: id (string)
+// Optional data: none
+handlers._tokens.delete = function (data, callback) {
+    // Check that the ID is valid
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the token
+        _data.read("tokens", id, function (err, data) {
+            if (!err && data) {
+                _data.delete("tokens", id, function (err) {
+                    if (!err) {
+                        callback(200);
+                    } else {
+                        callback(500, {
+                            Error: "Could not delete the specified token",
+                        });
+                    }
+                });
+            } else {
+                callback(400, { Error: "Could not find the specified token." });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+...
+```
+
+**Testing**
+Method - `DELETE`
+Endpoint - `localhost:3000/tokens?id=hzk5vl8apqkbulkgpbvi`
+
+**Output**
+200 OK
 
 # **GUI**
 
