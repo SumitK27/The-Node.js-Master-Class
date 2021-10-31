@@ -34,7 +34,7 @@ handlers.users = function (data, callback) {
 handlers._users = {};
 
 // Users - POST
-// Required data: firstName, lastName, phone, password, tosAgreement
+// Required data: firstName (string), lastName (string), phone (string), password (string), tosAgreement (boolean)
 // Optional data: none
 handlers._users.post = function (data, callback) {
     // Check that all required fields are filled out
@@ -122,7 +122,7 @@ handlers._users.post = function (data, callback) {
 };
 
 // Users - GET
-// Required data: phone
+// Required data: phone (string)
 // Optional data: none
 // TODO Only let an authenticated user access their object. Dont let them access anyone elses.
 handlers._users.get = function (data, callback) {
@@ -149,7 +149,7 @@ handlers._users.get = function (data, callback) {
 };
 
 // Users - PUT
-// Required data: phone
+// Required data: phone (string)
 // Optional data: firstName, lastName, password (at least one must be specified)
 // TODO Only let an authenticated user up their object. Dont let them access update elses.
 handlers._users.put = function (data, callback) {
@@ -219,7 +219,7 @@ handlers._users.put = function (data, callback) {
 };
 
 // Users - DELETE
-// Required data: phone
+// Required data: phone (string)
 // TODO Only let an authenticated user delete their object. Dont let them delete update elses.
 // TODO Cleanup (delete) any other data files associated with the user
 handlers._users.delete = function (data, callback) {
@@ -266,7 +266,7 @@ handlers.tokens = function (data, callback) {
 handlers._tokens = {};
 
 // Tokens - POST
-// Required data: phone, password
+// Required data: phone (string), password (string)
 // Optional data: none
 handlers._tokens.post = function (data, callback) {
     var phone =
@@ -329,7 +329,7 @@ handlers._tokens.post = function (data, callback) {
 };
 
 // Tokens - GET
-// Required data: id
+// Required data: id (string)
 // Optional data: none
 handlers._tokens.get = function (data, callback) {
     // Check that the sent ID is valid
@@ -351,6 +351,58 @@ handlers._tokens.get = function (data, callback) {
         callback(400, { Error: "Missing required field" });
     }
 };
+
+// Tokens - PUT
+// Required data: id (string), extend (boolean)
+// Optional data: none
+handlers._tokens.put = function (data, callback) {
+    var id =
+        typeof data.payload.id == "string" &&
+        data.payload.id.trim().length == 20
+            ? data.payload.id.trim()
+            : false;
+    var extend =
+        typeof data.payload.extend == "boolean" && data.payload.extend == true
+            ? true
+            : false;
+
+    if (id && extend) {
+        // Lookup the token
+        _data.read("tokens", id, function (err, tokenData) {
+            if (!err && tokenData) {
+                // Check to make sure the token isn't already expired
+                if (tokenData.expires > Date.now()) {
+                    // Set expiration an hour from now
+                    tokenData.expires = Date.now() + 1000 * 60 * 60;
+
+                    // Store the new updates
+                    _data.update("tokens", id, tokenData, function (err) {
+                        if (!err) {
+                            callback(200);
+                        } else {
+                            callback(500, {
+                                Error: "Couldn't update the token's expiration",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, {
+                        Error: "The token has already expired and cannot be extended",
+                    });
+                }
+            } else {
+                callback(400, { Error: "Specified token does not exists" });
+            }
+        });
+    } else {
+        callback(400, {
+            Error: "Missing required field(s) or fields are invalid",
+        });
+    }
+};
+
+// Tokens - DELETE
+handlers._tokens.delete = function (data, callback) {};
 
 // Not found handler
 handlers.notFound = function (data, callback) {

@@ -43,6 +43,7 @@
    13. [**Tokens**](#tokens)
          1. [**Creating a Token**](#creating-a-token)
          2. [**Getting a Token**](#getting-a-token)
+         3. [**Updating a Token**](#updating-a-token)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1543,27 +1544,52 @@ Body -
 
 ```javascript
 ...
-// Tokens - GET
-// Required data: id
+// Tokens - PUT
+// Required data: id (string), extend (boolean)
 // Optional data: none
-handlers._tokens.get = function (data, callback) {
-    // Check that the sent ID is valid
+handlers._tokens.put = function (data, callback) {
     var id =
-        typeof data.queryString.id == "string" &&
-        data.queryString.id.trim().length == 20
-            ? data.queryString.id.trim()
+        typeof data.payload.id == "string" &&
+        data.payload.id.trim().length == 20
+            ? data.payload.id.trim()
             : false;
-    if (id) {
-        // Lookup the user
+    var extend =
+        typeof data.payload.extend == "boolean" && data.payload.extend == true
+            ? true
+            : false;
+
+    if (id && extend) {
+        // Lookup the token
         _data.read("tokens", id, function (err, tokenData) {
             if (!err && tokenData) {
-                callback(200, tokenData);
+                // Check to make sure the token isn't already expired
+                if (tokenData.expires > Date.now()) {
+                    // Set expiration an hour from now
+                    tokenData.expires = Date.now() + 1000 * 60 * 60;
+
+                    // Store the new updates
+                    _data.update("tokens", id, tokenData, function (err) {
+                        if (!err) {
+                            callback(200);
+                        } else {
+                            callback(500, {
+                                Error: "Couldn't update the token's expiration",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, {
+                        Error: "The token has already expired and cannot be extended",
+                    });
+                }
             } else {
-                callback(404);
+                callback(400, { Error: "Specified token does not exists" });
             }
         });
     } else {
-        callback(400, { Error: "Missing required field" });
+        callback(400, {
+            Error: "Missing required field(s) or fields are invalid",
+        });
     }
 };
 ...
@@ -1580,6 +1606,96 @@ Endpoint - `localhost:3000/tokens?id=hzk5vl8apqkbulkgpbvi`
     "phone": "5551234568",
     "id": "hzk5vl8apqkbulkgpbvi",
     "expires": 1635704906329
+}
+```
+
+#### **Updating a Token**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Tokens - PUT
+// Required data: id (string), extend (boolean)
+// Optional data: none
+handlers._tokens.put = function (data, callback) {
+    var id =
+        typeof data.payload.id == "string" &&
+        data.payload.id.trim().length == 20
+            ? data.payload.id.trim()
+            : false;
+    var extend =
+        typeof data.payload.extend == "boolean" && data.payload.extend == true
+            ? true
+            : false;
+
+    if (id && extend) {
+        // Lookup the token
+        _data.read("tokens", id, function (err, tokenData) {
+            if (!err && tokenData) {
+                // Check to make sure the token isn't already expired
+                if (tokenData.expires > Date.now()) {
+                    // Set expiration an hour from now
+                    tokenData.expires = Date.now() + 1000 * 60 * 60;
+
+                    // Store the new updates
+                    _data.update("tokens", id, tokenData, function (err) {
+                        if (!err) {
+                            callback(200);
+                        } else {
+                            callback(500, {
+                                Error: "Couldn't update the token's expiration",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, {
+                        Error: "The token has already expired and cannot be extended",
+                    });
+                }
+            } else {
+                callback(400, { Error: "Specified token does not exists" });
+            }
+        });
+    } else {
+        callback(400, {
+            Error: "Missing required field(s) or fields are invalid",
+        });
+    }
+};
+...
+```
+
+**Testing**
+Method - `PUT`
+Endpoint - `localhost:3000/tokens`
+Body -
+
+```json
+{
+    "id": "hzk5vl8apqkbulkgpbvi",
+    "extend": true
+}
+```
+
+**Before Updating**
+
+```json
+{
+    "phone": "5551234568",
+    "id": "hzk5vl8apqkbulkgpbvi",
+    "expires": 1635704906329
+}
+```
+
+**Output**
+200 OK
+
+```json
+{
+    "phone": "5551234568",
+    "id": "hzk5vl8apqkbulkgpbvi",
+    "expires": 1635707364862
 }
 ```
 
