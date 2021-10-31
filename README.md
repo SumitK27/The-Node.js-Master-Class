@@ -1029,6 +1029,10 @@ _data.delete("test", "newFile", function (err) {
 
 ## **Users**
 
+```bash
+mkdir .data/users
+```
+
 `lib/config.js`
 
 ```javascript
@@ -1400,6 +1404,10 @@ var router = {
    Method - `POST`
 
 ## **Tokens**
+
+```bash
+mkdir .data/tokens
+```
 
 #### **Creating a Token**
 
