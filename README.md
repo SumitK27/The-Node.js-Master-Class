@@ -40,6 +40,8 @@
          3. [**Updating Data**](#updating-data)
          4. [**Deleting File**](#deleting-file)
    12. [**Users**](#users)
+   13. [**Tokens**](#tokens)
+      1. [**Creating a Token**](#creating-a-token)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1393,6 +1395,146 @@ var router = {
 4. **Delete a User**
    Endpoint - `localhost:3000/users?phone=5551234569`
    Method - `POST`
+
+## **Tokens**
+
+### **Creating a Token**
+
+`index.js`
+
+```javascript
+// Define a request router
+var router = {
+    ...
+    tokens: handlers.tokens,
+};
+```
+
+`lib/handlers.js`
+
+```javascript
+...
+// Container for token sub methods
+handlers._tokens = {};
+
+// Tokens - POST
+// Required data: phone, password
+// Optional data: none
+handlers._tokens.post = function (data, callback) {
+    var phone =
+        typeof data.payload.phone == "string" &&
+        data.payload.phone.trim().length == 10
+            ? data.payload.phone.trim()
+            : false;
+    var password =
+        typeof data.payload.password == "string" &&
+        data.payload.password.trim().length > 0
+            ? data.payload.password.trim()
+            : false;
+    if (phone && password) {
+        // Lookup the user that matches that phone number
+        _data.read("users", phone, function (err, userData) {
+            if (!err && userData) {
+                // Hash the sent password and compare it to the user object
+                var hashedPassword = helpers.hash(password);
+                if (hashedPassword == userData.hashedPassword) {
+                    // If valid then create a token with valid name.
+                    var tokenId = helpers.createRandomString(20);
+
+                    // Set expiration date 1 hour in the future
+                    var expires = Date.now() + 1000 * 60 * 60;
+
+                    // Create the token object
+                    var tokenObject = {
+                        phone: phone,
+                        id: tokenId,
+                        expires: expires,
+                    };
+
+                    // Store the token
+                    _data.create(
+                        "tokens",
+                        tokenId,
+                        tokenObject,
+                        function (err) {
+                            if (!err) {
+                                callback(200, tokenObject);
+                            } else {
+                                callback(500, {
+                                    Error: "Could not create the new token",
+                                });
+                            }
+                        }
+                    );
+                } else {
+                    callback(400, {
+                        Error: "Password did not matched the specified user's stored password",
+                    });
+                }
+            } else {
+                callback(400, { Error: "Could not found the specified user" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field(s)" });
+    }
+};
+```
+
+`lib/helpers.js`
+
+```javascript
+...
+// Create a string of random alphanumeric characters of a given length
+helpers.createRandomString = function (srtLength) {
+    srtLength =
+        typeof srtLength == "number" && srtLength > 0 ? srtLength : false;
+    if (srtLength) {
+        // Define all the possible characters that could go into a string
+        var possibleCharacters = "abcdefghijklmnopqurstuvwxyz0123456789";
+
+        // Store the final string
+        var str = "";
+
+        for (var i = 0; i < srtLength; i++) {
+            // Get random character from possible characters string
+            var randomCharacter = possibleCharacters.charAt(
+                Math.floor(Math.random() * possibleCharacters.length)
+            );
+            // Append this character to the final string
+            str += randomCharacter;
+        }
+
+        // Return the final string
+        return str;
+    } else {
+        return false;
+    }
+};
+...
+```
+
+**Testing**
+Method - `POST`
+Endpoint - `localhost:3000/tokens`
+Body -
+
+```json
+{
+    "phone": "5551234568",
+    "password": "thisIsAPassword"
+}
+```
+
+**Output**
+
+```json
+{
+    "phone": "5551234568",
+    "id": "hzk5vl8apqkbulkgpbvi",
+    "expires": 1635704906329
+}
+```
 
 # **GUI**
 
