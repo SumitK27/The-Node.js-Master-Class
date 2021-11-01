@@ -45,6 +45,11 @@
          2. [**Getting a Token**](#getting-a-token)
          3. [**Updating a Token**](#updating-a-token)
          4. [**Deleting a Token**](#deleting-a-token)
+      1. [Adding validation for authenticated users](#adding-validation-for-authenticated-users)
+         1. [**Verification method**](#verification-method)
+         2. [**Get user validation**](#get-user-validation)
+         3. [**Update user validation**](#update-user-validation)
+         4. [**Delete User validation**](#delete-user-validation)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1767,6 +1772,204 @@ Endpoint - `localhost:3000/tokens?id=hzk5vl8apqkbulkgpbvi`
 
 **Output**
 200 OK
+
+### Adding validation for authenticated users
+
+#### **Verification method**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Verify if a given token ID is currently valid for a given user
+handlers._tokens.verifyToken = function (id, phone, callback) {
+    // Lookup the token
+    _data.read("tokens", id, function (err, tokenData) {
+        if (!err && tokenData) {
+            // Check that the token is for the given user and has not expired
+            if (tokenData.phone == phone && tokenData.expires > Date.now()) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        } else {
+            callback(false);
+        }
+    });
+};
+...
+```
+
+#### **Get user validation**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Users - GET
+// Required data: phone (string)
+// Optional data: none
+handlers._users.get = function (data, callback) {
+    ...
+    if (phone) {
+        // Get the token from the headers
+        var token =
+            typeof data.headers.token == "string" ? data.headers.token : false;
+
+        // Verify that the given token from the header is valid for the phone number
+        handlers._tokens.verifyToken(token, phone, function (tokenIsValid) {
+            if (tokenIsValid) {
+                // Lookup the user
+                _data.read("users", phone, function (err, data) {
+                    ...
+                });
+            } else {
+                callback(403, {
+                    Error: "Missing required token in header, or token is invalid",
+                });
+            }
+        });
+    }
+    ...
+};
+...
+```
+
+**Testing**
+
+Method - `GET`
+Endpoint - `localhost:3000/users?phone=555123458`
+Header -
+
+```javascript
+{
+    token: 0zmg7seuta9qapotuf33
+}
+```
+
+Response -
+
+```json
+{
+    "firstName": "Agnethe",
+    "lastName": "Ó Domhnaill",
+    "phone": "5551234568",
+    "tosAgreement": true
+}
+```
+
+#### **Update user validation**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Users - PUT
+// Required data: phone (string)
+// Optional data: firstName, lastName, password (at least one must be specified)
+handlers._users.put = function (data, callback) {
+    ...
+    // Error if phone is invalid
+    if (phone) {
+        // Error if nothing is sent to update
+        if (firstName || lastName || password) {
+            // Get the token from the headers
+            var token =
+                typeof data.headers.token == "string"
+                    ? data.headers.token
+                    : false;
+
+            // Verify that the given token from the header is valid for the phone number
+            handlers._tokens.verifyToken(token, phone, function (tokenIsValid) {
+                if (tokenIsValid) {
+                    // Lookup the user
+                    _data.read("users", phone, function (err, userData) {
+                        ...
+                    });
+                } else {
+                    callback(403, {
+                        Error: "Missing required token in header, or token is invalid",
+                    });
+                }
+            });
+        }
+        ...
+    }
+    ...
+};
+...
+```
+
+**Testing**
+
+Method - `PUT`
+Endpoint - `localhost:3000/users`
+Header -
+
+```javascript
+{
+    token: 0zmg7seuta9qapotuf33
+}
+```
+
+Body -
+
+```json
+{
+    "firstName": "Agnethe",
+    "lastName": "Smith",
+    "phone": "5551234568"
+}
+```
+
+Response - 200 OK `json{}`
+
+#### **Delete User validation**
+
+```javascript
+...
+// Users - DELETE
+// Required data: phone (string)
+// TODO Cleanup (delete) any other data files associated with the user
+handlers._users.delete = function (data, callback) {
+    ...
+    if (phone) {
+        // Get token from headers
+        var token =
+            typeof data.headers.token == "string" ? data.headers.token : false;
+
+        // Verify that the given token is valid for the phone number
+        handlers._tokens.verifyToken(token, phone, function (tokenIsValid) {
+            if (tokenIsValid) {
+                // Lookup the user
+                _data.read("users", phone, function (err, data) {
+                    ...
+                });
+            } else {
+                callback(403, {
+                    Error: "Missing required token in header, or token is invalid.",
+                });
+            }
+        });
+    }
+    ...
+};
+...
+```
+
+**Testing**
+
+Method - `GET`
+Endpoint - `localhost:3000/users?phone=555123458`
+Header -
+
+```javascript
+{
+    token: 0zmg7seuta9qapotuf33
+}
+```
+
+Response - 200 OK `json{}`
 
 # **GUI**
 
