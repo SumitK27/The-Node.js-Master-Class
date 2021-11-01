@@ -135,7 +135,7 @@ handlers._users.GET = (data, callback) => {
                 delete data.hashedPassword;
                 callback(200, data);
             } else {
-                callback(404);
+                callback(404, { Error: "User not found" });
             }
         });
     } else {
