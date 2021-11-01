@@ -347,6 +347,55 @@ handlers._tokens.GET = (data, callback) => {
     }
 };
 
+// Tokens - PUT
+// Required data: id (string), extend (boolean)
+// Optional data: none
+handlers._tokens.PUT = (data, callback) => {
+    const id =
+        typeof data.payload.id === "string" &&
+        data.payload.id.trim().length === 20
+            ? data.payload.id.trim()
+            : false;
+    const extend =
+        typeof data.payload.extend === "boolean" && data.payload.extend === true
+            ? true
+            : false;
+
+    if (id && extend) {
+        // Lookup the token
+        _data.read("tokens", id, (err, tokenData) => {
+            if (!err && tokenData) {
+                // Check if token isn't already expired
+                if (tokenData.expires > Date.now()) {
+                    // Set expiration and hour from now
+                    tokenData.expires = Date.now() + 1000 * 60 * 60;
+
+                    // Store the new expiration
+                    _data.update("tokens", id, tokenData, (err) => {
+                        if (!err) {
+                            callback(200);
+                        } else {
+                            callback(500, {
+                                Error: "Couldn't update the token's expiration",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, {
+                        Error: "The token has already expired and cannot be extended",
+                    });
+                }
+            } else {
+                callback(400, { Error: "Specified token does not exists" });
+            }
+        });
+    } else {
+        callback(400, {
+            Error: "Missing required field(s) or fields are invalid",
+        });
+    }
+};
+
 // Not found handler
 handlers.notFound = (data, callback) => {
     callback(404);
