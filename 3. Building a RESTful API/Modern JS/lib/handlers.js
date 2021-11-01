@@ -34,7 +34,7 @@ handlers.users = (data, callback) => {
 handlers._users = {};
 
 // Users - POST
-// Required data: firstName, lastName, phone, password, tosAgreement
+// Required data: firstName (string), lastName (string), phone (string), password (string), tosAgreement (boolean)
 // Optional data: none
 handlers._users.POST = (data, callback) => {
     // Check that all required fields are filled out
@@ -117,7 +117,7 @@ handlers._users.POST = (data, callback) => {
 };
 
 // Users - GET
-// Required data: phone
+// Required data: phone (string)
 // Optional data: none
 // TODO Only let an authenticated user access their object. Dont let them access anyone elses.
 handlers._users.GET = (data, callback) => {
@@ -144,8 +144,9 @@ handlers._users.GET = (data, callback) => {
 };
 
 // Users - PUT
-// Required data: phone
+// Required data: phone (string)
 // Optional data: firstName, lastName, password (at least one must be specified)
+// TODO Only let an authenticated user up their object. Dont let them access update elses.
 // TODO Only let an authenticated user up their object. Dont let them access update elses.
 handlers._users.PUT = (data, callback) => {
     // Check for required field
@@ -214,7 +215,7 @@ handlers._users.PUT = (data, callback) => {
 };
 
 // Users - DELETE
-// Required data: phone
+// Required data: phone (string)
 // TODO Only let an authenticated user delete their object. Dont let them delete update elses.
 // TODO Cleanup (delete) any other data files associated with the user
 handlers._users.DELETE = (data, callback) => {
@@ -250,7 +251,6 @@ handlers._users.DELETE = (data, callback) => {
 // Tokens
 handlers.tokens = (data, callback) => {
     const acceptableMethods = ["POST", "GET", "PUT", "DELETE"];
-    console.log(data.method);
     if (acceptableMethods.indexOf(data.method) > -1) {
         handlers._tokens[data.method](data, callback);
     } else {
@@ -319,6 +319,31 @@ handlers._tokens.POST = (data, callback) => {
         });
     } else {
         callback(400, { Error: "Missing required field(s)" });
+    }
+};
+
+// Tokens - GET
+// Required data: id (string)
+// Optional data: none
+handlers._tokens.GET = (data, callback) => {
+    // Check if the ID is valid
+    const id =
+        typeof data.queryString.id === "string" &&
+        data.queryString.id.trim().length === 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the user
+        _data.read("tokens", id, (err, tokenData) => {
+            if (!err && tokenData) {
+                callback(200, tokenData);
+            } else {
+                callback(404);
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
     }
 };
 
