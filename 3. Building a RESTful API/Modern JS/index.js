@@ -97,10 +97,10 @@ const unifiedServer = (req, res) => {
         // Route the requests to the handler specified in the router
         chosenHandler(data, (statusCode, payload) => {
             // Use the status code called by the handler, or default to 200
-            statusCode = typeof statusCode == "number" ? statusCode : 200;
+            statusCode = typeof statusCode === "number" ? statusCode : 200;
 
             // Use the payload called by handler, or default to an empty object
-            payload = typeof payload == "object" ? payload : {};
+            payload = typeof payload === "object" ? payload : {};
 
             // Convert the payload to a string
             const payloadString = JSON.stringify(payload);
@@ -121,4 +121,5 @@ const router = {
     sample: handlers.sample,
     ping: handlers.ping,
     users: handlers.users,
+    tokens: handlers.tokens,
 };

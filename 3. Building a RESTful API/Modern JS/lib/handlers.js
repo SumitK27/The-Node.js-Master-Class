@@ -22,7 +22,7 @@ handlers.ping = (data, callback) => {
 
 // Users
 handlers.users = (data, callback) => {
-    const acceptableMethods = ["post", "get", "put", "delete"];
+    const acceptableMethods = ["POST", "GET", "PUT", "DELETE"];
     if (acceptableMethods.indexOf(data.method) > -1) {
         handlers._users[data.method](data, callback);
     } else {
@@ -36,7 +36,7 @@ handlers._users = {};
 // Users - POST
 // Required data: firstName, lastName, phone, password, tosAgreement
 // Optional data: none
-handlers._users.post = (data, callback) => {
+handlers._users.POST = (data, callback) => {
     // Check that all required fields are filled out
     const firstName =
         typeof data.payload.firstName === "string" &&
@@ -77,10 +77,10 @@ handlers._users.post = (data, callback) => {
                         // Create the user object
                         if (hashedPassword) {
                             const userObject = {
-                                firstName: firstName,
-                                lastName: lastName,
-                                phone: phone,
-                                hashedPassword: hashedPassword,
+                                firstName,
+                                lastName,
+                                phone,
+                                hashedPassword,
                                 tosAgreement: true,
                             };
 
@@ -120,7 +120,7 @@ handlers._users.post = (data, callback) => {
 // Required data: phone
 // Optional data: none
 // TODO Only let an authenticated user access their object. Dont let them access anyone elses.
-handlers._users.get = (data, callback) => {
+handlers._users.GET = (data, callback) => {
     // Check that phone number is valid
     const phone =
         typeof data.queryString.phone === "string" &&
@@ -147,7 +147,7 @@ handlers._users.get = (data, callback) => {
 // Required data: phone
 // Optional data: firstName, lastName, password (at least one must be specified)
 // TODO Only let an authenticated user up their object. Dont let them access update elses.
-handlers._users.put = (data, callback) => {
+handlers._users.PUT = (data, callback) => {
     // Check for required field
     const phone =
         typeof data.payload.phone == "string" &&
@@ -217,7 +217,7 @@ handlers._users.put = (data, callback) => {
 // Required data: phone
 // TODO Only let an authenticated user delete their object. Dont let them delete update elses.
 // TODO Cleanup (delete) any other data files associated with the user
-handlers._users.delete = (data, callback) => {
+handlers._users.DELETE = (data, callback) => {
     // Check that phone number is valid
     const phone =
         typeof data.queryString.phone === "string" &&
@@ -244,6 +244,81 @@ handlers._users.delete = (data, callback) => {
         });
     } else {
         callback(400, { Error: "Missing required field" });
+    }
+};
+
+// Tokens
+handlers.tokens = (data, callback) => {
+    const acceptableMethods = ["POST", "GET", "PUT", "DELETE"];
+    console.log(data.method);
+    if (acceptableMethods.indexOf(data.method) > -1) {
+        handlers._tokens[data.method](data, callback);
+    } else {
+        callback(405);
+    }
+};
+
+// Container for token sub methods
+handlers._tokens = {};
+
+// Tokens - POST
+// Required data: phone (string), password(string)
+// Optional data: none
+handlers._tokens.POST = (data, callback) => {
+    const phone =
+        typeof data.payload.phone === "string" &&
+        data.payload.phone.trim().length === 10
+            ? data.payload.phone.trim()
+            : false;
+    const password =
+        typeof data.payload.password === "string" &&
+        data.payload.password.trim().length > 0
+            ? data.payload.password.trim()
+            : false;
+
+    if (phone && password) {
+        // Lookup the user that matches that phone number
+        _data.read("users", phone, (err, userData) => {
+            if (!err && userData) {
+                // Hash the sent password and compare it to the user object
+                const hashedPassword = helpers.hash(password);
+
+                // If password matches
+                if (hashedPassword === userData.hashedPassword) {
+                    // If valid then create a token with valid name.
+                    const tokenId = helpers.createRandomString(20);
+
+                    // Set expiration data 1 hour in the future
+                    const expires = Date.now() + 1000 * 60 * 60;
+
+                    // Create the token object
+                    const tokenObject = {
+                        phone,
+                        id: tokenId,
+                        expires,
+                    };
+
+                    // Store the token
+                    _data.create("tokens", tokenId, tokenObject, (err) => {
+                        if (!err) {
+                            callback(200, tokenObject);
+                        } else {
+                            callback(500, {
+                                Error: "Could not create the new token",
+                            });
+                        }
+                    });
+                } else {
+                    callback(400, {
+                        Error: "Password did not matched the specified user's stored password",
+                    });
+                }
+            } else {
+                callback(400, { Error: "Could not found the specified user" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field(s)" });
     }
 };
 
