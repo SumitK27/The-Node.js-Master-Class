@@ -1425,6 +1425,17 @@ var router = {
 
 ```javascript
 ...
+
+// Tokens
+handlers.tokens = function (data, callback) {
+    var acceptableMethods = ["post", "get", "put", "delete"];
+    if (acceptableMethods.indexOf(data.method) > -1) {
+        handlers._tokens[data.method](data, callback);
+    } else {
+        callback(405);
+    }
+};
+
 // Container for token sub methods
 handlers._tokens = {};
 
