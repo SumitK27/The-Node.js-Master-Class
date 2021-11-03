@@ -52,6 +52,7 @@
          4. [**Delete User validation**](#delete-user-validation)
    14. [**Checks**](#checks)
       1. [**Creating Checks**](#creating-checks)
+      2. [**Getting a Check**](#getting-a-check)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -1975,8 +1976,6 @@ Response - 200 OK `json{}`
 
 ## **Checks**
 
-### **Creating Checks**
-
 Terminal Command
 
 ```bash
@@ -2009,6 +2008,8 @@ environments.production = {
 };
 ...
 ```
+
+### **Creating Checks**
 
 `lib/handlers.js`
 
@@ -2177,6 +2178,81 @@ Body -
     "method": "get",
     "successCodes": [200, 201],
     "timeoutSeconds": 3
+}
+```
+
+**Response**
+
+```json
+{
+    "id": "ruhurrr98uk8911o09ou",
+    "userPhone": "5551234568",
+    "protocol": "http",
+    "url": "google.com",
+    "method": "get",
+    "successCodes": [200, 201],
+    "timeoutSeconds": 3
+}
+```
+
+### **Getting a Check**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Checks - GET
+// Required data: [Query] id (string), [Header] token (string)
+// Optional data: none
+handlers._checks.get = function (data, callback) {
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the check
+        _data.read("checks", id, function (err, checkData) {
+            if (!err && checkData) {
+                // Get the token from the headers
+                var token =
+                    typeof data.headers.token == "string"
+                        ? data.headers.token
+                        : false;
+
+                // Verify that the given token from the header is valid and belongs to the user who created the check
+                handlers._tokens.verifyToken(
+                    token,
+                    checkData.userPhone,
+                    function (tokenIsValid) {
+                        if (tokenIsValid) {
+                            // Return the check data
+                            callback(200, checkData);
+                        } else {
+                            callback(403);
+                        }
+                    }
+                );
+            } else {
+                callback(404, { Error: "Check doesn't exists" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+...
+```
+
+**Testing**
+Method - `GET`
+Endpoint - `localhost:3000/checks?id=ruhurrr98uk8911o09ou`
+Header -
+
+```json
+{
+    "token": "1acwsoeucwxxw0igyo7y"
 }
 ```
 

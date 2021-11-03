@@ -639,6 +639,48 @@ handlers._checks.post = function (data, callback) {
     }
 };
 
+// Checks - GET
+// Required data: [Query] id (string), [Header] token (string)
+// Optional data: none
+handlers._checks.get = function (data, callback) {
+    var id =
+        typeof data.queryString.id == "string" &&
+        data.queryString.id.trim().length == 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the check
+        _data.read("checks", id, function (err, checkData) {
+            if (!err && checkData) {
+                // Get the token from the headers
+                var token =
+                    typeof data.headers.token == "string"
+                        ? data.headers.token
+                        : false;
+
+                // Verify that the given token from the header is valid and belongs to the user who created the check
+                handlers._tokens.verifyToken(
+                    token,
+                    checkData.userPhone,
+                    function (tokenIsValid) {
+                        if (tokenIsValid) {
+                            // Return the check data
+                            callback(200, checkData);
+                        } else {
+                            callback(403);
+                        }
+                    }
+                );
+            } else {
+                callback(404, { Error: "Check doesn't exists" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+
 // Not found handler
 handlers.notFound = function (data, callback) {
     callback(404);
