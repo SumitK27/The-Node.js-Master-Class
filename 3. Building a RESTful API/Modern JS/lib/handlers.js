@@ -5,6 +5,7 @@
 // Dependencies
 var _data = require("./data");
 var helpers = require("./helpers");
+var config = require("./config");
 
 // Define a handlers
 const handlers = {};
@@ -119,7 +120,6 @@ handlers._users.POST = (data, callback) => {
 // Users - GET
 // Required data: phone (string)
 // Optional data: none
-// TODO Only let an authenticated user access their object. Dont let them access anyone elses.
 handlers._users.GET = (data, callback) => {
     // Check that phone number is valid
     const phone =
@@ -486,6 +486,188 @@ handlers._tokens.verifyToken = (id, phone, callback) => {
             callback(false);
         }
     });
+};
+
+// Checks
+handlers.checks = (data, callback) => {
+    const acceptableMethods = ["POST", "GET", "PUT", "DELETE"];
+    if (acceptableMethods.indexOf(data.method) > -1) {
+        handlers._checks[data.method](data, callback);
+    } else {
+        callback(405, { Error: "Invalid Method" });
+    }
+};
+
+// Container for all the check methods
+handlers._checks = {};
+
+// Checks - POST
+// Required data: protocol (string), url (string), method (string), successCodes (array), timeoutSeconds (number)
+// Optional data: none
+handlers._checks.POST = (data, callback) => {
+    // Validate inputs
+    const protocol =
+        typeof data.payload.protocol === "string" &&
+        ["https", "http"].indexOf(data.payload.protocol) > -1
+            ? data.payload.protocol
+            : false;
+    const url =
+        typeof data.payload.url === "string" &&
+        data.payload.url.trim().length > 0
+            ? data.payload.url.trim()
+            : false;
+    const method =
+        typeof data.payload.method === "string" &&
+        ["post", "get", "put", "delete"].indexOf(data.payload.method) > -1
+            ? data.payload.method
+            : false;
+    const successCodes =
+        typeof data.payload.successCodes === "object" &&
+        data.payload.successCodes instanceof Array &&
+        data.payload.successCodes.length > 0
+            ? data.payload.successCodes
+            : false;
+    const timeoutSeconds =
+        typeof data.payload.timeoutSeconds === "number" &&
+        data.payload.timeoutSeconds % 1 === 0 &&
+        data.payload.timeoutSeconds >= 1 &&
+        data.payload.timeoutSeconds <= 5
+            ? data.payload.timeoutSeconds
+            : false;
+
+    // If all inputs are valid
+    if (protocol && url && method && successCodes && timeoutSeconds) {
+        // Get the token from the headers
+        const token =
+            typeof data.headers.token === "string" ? data.headers.token : false;
+
+        // Lookup the user by reading the token
+        _data.read("tokens", token, (err, tokenData) => {
+            if (!err && tokenData) {
+                const userPhone = tokenData.phone;
+
+                // Lookup the user data
+                _data.read("users", userPhone, (err, userData) => {
+                    if (!err && userData) {
+                        const userChecks =
+                            typeof userData.checks === "object" &&
+                            userData.checks instanceof Array
+                                ? userData.checks
+                                : [];
+
+                        // Verify that user has less than the number of max-checks per user
+                        if (userChecks.length < config.maxChecks) {
+                            // Create a random ID for the check
+                            const checkId = helpers.createRandomString(20);
+
+                            // Create the check object, and include user's phone
+                            const checkObject = {
+                                id: checkId,
+                                userPhone: userPhone,
+                                protocol: protocol,
+                                url: url,
+                                method: method,
+                                successCodes: successCodes,
+                                timeoutSeconds: timeoutSeconds,
+                            };
+
+                            // Save the data
+                            _data.create(
+                                "checks",
+                                checkId,
+                                checkObject,
+                                (err) => {
+                                    if (!err) {
+                                        // Add the checkId to the users object
+                                        userData.checks = userChecks;
+                                        userData.checks.push(checkId);
+
+                                        // Save the new user data
+                                        _data.update(
+                                            "users",
+                                            userPhone,
+                                            userData,
+                                            (err) => {
+                                                if (!err) {
+                                                    // Return the data about the new check
+                                                    callback(200, checkObject);
+                                                } else {
+                                                    callback(500, {
+                                                        Error: "Could not update the user with the new check",
+                                                    });
+                                                }
+                                            }
+                                        );
+                                    } else {
+                                        callback(500, {
+                                            Error: "Could not create the new check",
+                                        });
+                                    }
+                                }
+                            );
+                        } else {
+                            callback(400, {
+                                Error:
+                                    "The user already has the maximum number of checks (" +
+                                    config.maxChecks +
+                                    ")",
+                            });
+                        }
+                    } else {
+                        callback(400, {
+                            Error: "Invalid Token or User not found",
+                        });
+                    }
+                });
+            } else {
+                callback(403, { Error: "Not Authorized" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Invalid inputs" });
+    }
+};
+
+// Checks - GET
+// Required data: [Query] id (string), [Header] token (string)
+// Optional data: none
+handlers._checks.GET = (data, callback) => {
+    const id =
+        typeof data.queryString.id === "string" &&
+        data.queryString.id.trim().length === 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the check
+        _data.read("checks", id, (err, checkData) => {
+            if (!err) {
+                // Get the token from the headers
+                const token =
+                    typeof data.headers.token === "string"
+                        ? data.headers.token
+                        : false;
+
+                // Verify that the given token from the header is valid and belongs to the user who created the check
+                handlers._tokens.verifyToken(
+                    token,
+                    checkData.userPhone,
+                    (tokenIsValid) => {
+                        if (tokenIsValid) {
+                            // Return the check data
+                            callback(200, checkData);
+                        } else {
+                            callback(403);
+                        }
+                    }
+                );
+            } else {
+                callback(404, { Error: "Check doesn't exists" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
 };
 
 // Not found handler
