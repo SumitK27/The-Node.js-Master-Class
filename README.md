@@ -53,6 +53,7 @@
    14. [**Checks**](#checks)
       1. [**Creating Checks**](#creating-checks)
       2. [**Getting a Check**](#getting-a-check)
+      3. [**Updating a Check**](#updating-a-check)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -2268,6 +2269,153 @@ Header -
     "successCodes": [200, 201],
     "timeoutSeconds": 3
 }
+```
+
+### **Updating a Check**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Checks - PUT
+// Required data: id (string)
+// Optional data: protocol, url (string), method (string), successCode, timeoutSeconds
+handlers._checks.put = function (data, callback) {
+    // Check for the required field
+    var id =
+        typeof data.payload.id == "string" &&
+        data.payload.id.trim().length == 20
+            ? data.payload.id.trim()
+            : false;
+
+    // Check for optional fields
+    var protocol =
+        typeof data.payload.protocol == "string" &&
+        ["https", "http"].indexOf(data.payload.protocol) > -1
+            ? data.payload.protocol
+            : false;
+    var url =
+        typeof data.payload.url == "string" &&
+        data.payload.url.trim().length > 0
+            ? data.payload.url.trim()
+            : false;
+    var method =
+        typeof data.payload.method == "string" &&
+        ["post", "get", "put", "delete"].indexOf(data.payload.method) > -1
+            ? data.payload.method
+            : false;
+    var successCodes =
+        typeof data.payload.successCodes == "object" &&
+        data.payload.successCodes instanceof Array &&
+        data.payload.successCodes.length > 0
+            ? data.payload.successCodes
+            : false;
+    var timeoutSeconds =
+        typeof data.payload.timeoutSeconds == "number" &&
+        data.payload.timeoutSeconds % 1 === 0 &&
+        data.payload.timeoutSeconds >= 1 &&
+        data.payload.timeoutSeconds <= 5
+            ? data.payload.timeoutSeconds
+            : false;
+
+    // Check to make sure ID is valid
+    if (id) {
+        // Check to make sure one or more optional fields has been sent
+        if (protocol || url || method || successCodes || timeoutSeconds) {
+            // Lookup the check
+            _data.read("checks", id, function (err, checkData) {
+                if (!err && checkData) {
+                    // Get the token from the header
+                    var token =
+                        typeof data.headers.token == "string"
+                            ? data.headers.token
+                            : false;
+
+                    // Verify that the given token is valid and belongs to the user who created the check
+                    handlers._tokens.verifyToken(
+                        token,
+                        checkData.userPhone,
+                        function (tokenIsValid) {
+                            if (tokenIsValid) {
+                                // Update the check where necessary
+                                if (protocol) {
+                                    checkData.protocol = protocol;
+                                }
+                                if (url) {
+                                    checkData.url = url;
+                                }
+                                if (method) {
+                                    checkData.method = method;
+                                }
+                                if (successCodes) {
+                                    checkData.successCodes = successCodes;
+                                }
+                                if (timeoutSeconds) {
+                                    checkData.timeoutSeconds = timeoutSeconds;
+                                }
+
+                                // Store the updates
+                                _data.update(
+                                    "checks",
+                                    id,
+                                    checkData,
+                                    function (err) {
+                                        if (!err) {
+                                            callback(200);
+                                        } else {
+                                            callback(500, {
+                                                Error: "Could not update the check",
+                                            });
+                                        }
+                                    }
+                                );
+                            } else {
+                                callback(403, { Error: "Invalid token" });
+                            }
+                        }
+                    );
+                } else {
+                    callback(400, { Error: "Check ID did not exists" });
+                }
+            });
+        } else {
+            callback(400, { Error: "Missing fields to update" });
+        }
+    } else {
+        callback(400, { Error: "Missing required field" });
+    }
+};
+...
+```
+
+**Testing**
+Method - `PUT`
+Endpoint - `localhost:3000/checks`
+Header -
+
+```json
+{
+    "token": "1acwsoeucwxxw0igyo7y"
+}
+```
+
+Body -
+
+```json
+{
+    "id": "ruhurrr98uk8911o09ou",
+    "protocol": "https",
+    "url": "yahoo.com",
+    "method": "put",
+    "successCodes": [200, 201, 403],
+    "timeoutSeconds": 2
+}
+```
+
+**Response**
+
+```json
+{}
 ```
 
 # **GUI**
