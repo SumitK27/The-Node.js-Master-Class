@@ -55,6 +55,7 @@
       2. [**Getting a Check**](#getting-a-check)
       3. [**Updating a Check**](#updating-a-check)
       4. [**Deleting a Check**](#deleting-a-check)
+      5. [**Cleaning up Checks after user is Deleted**](#cleaning-up-checks-after-user-is-deleted)
 3. [**GUI**](#gui)
 4. [**CLI**](#cli)
 5. [**Stability**](#stability)
@@ -2577,6 +2578,107 @@ Header -
         "ry2z3k6hy5wnybvxdau9",
         "elg9y2rtxhdsnjeu9yje"
     ]
+}
+```
+
+**Response**
+
+```json
+{}
+```
+
+### **Cleaning up Checks after user is Deleted**
+
+`lib/handlers.js`
+
+```javascript
+...
+// Users - DELETE
+// Required data: phone (string)
+handlers._users.delete = function (data, callback) {
+    ...
+    if (phone) {
+        ...
+        // Verify that the given token is valid for the phone number
+        handlers._tokens.verifyToken(token, phone, function (tokenIsValid) {
+            if (tokenIsValid) {
+                // Lookup the user
+                _data.read("users", phone, function (err, userData) {
+                    if (!err && userData) {
+                        _data.delete("users", phone, function (err) {
+                            if (!err) {
+                                // Delete each checks associated with the user
+                                var userChecks =
+                                    typeof userData.checks == "object" &&
+                                    userData.checks instanceof Array
+                                        ? userData.checks
+                                        : [];
+                                var checksToDelete = userChecks.length;
+                                if (checksToDelete > 0) {
+                                    var checksDeleted = 0;
+                                    var deletionErrors = false;
+
+                                    // Loop through the checks
+                                    userChecks.forEach(function (checkId) {
+                                        // Delete the check
+                                        _data.delete(
+                                            "checks",
+                                            checkId,
+                                            function (err) {
+                                                if (err) {
+                                                    deletionErrors = true;
+                                                }
+                                                checksDeleted++;
+
+                                                if (
+                                                    checksDeleted ==
+                                                    checksToDelete
+                                                ) {
+                                                    if (!deletionErrors) {
+                                                        callback(200);
+                                                    } else {
+                                                        callback(500, {
+                                                            Error: "Errors encountered while attempting to delete all of the user's checks. All checks may not have been deleted from the system successfully.",
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        );
+                                    });
+                                } else {
+                                    callback(200);
+                                }
+                            } else {
+                                callback(500, {
+                                    Error: "Could not delete the specified user",
+                                });
+                            }
+                        });
+                    } else {
+                        callback(400, {
+                            Error: "Could not find the specified user.",
+                        });
+                    }
+                });
+            } else {
+               ...
+            }
+        });
+    } else {
+        ...
+    }
+};
+...
+```
+
+**Testing**
+Method - `DELETE`
+Endpoint - `localhost:3000/users`
+Header -
+
+```json
+{
+    "token": "1acwsoeucwxxw0igyo7y"
 }
 ```
 
