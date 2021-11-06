@@ -774,6 +774,110 @@ handlers._checks.PUT = (data, callback) => {
     }
 };
 
+// Checks - DELETE
+// Required data: id (string)
+// Optional data: none
+handlers._checks.DELETE = (data, callback) => {
+    const id =
+        typeof data.queryString.id === "string" &&
+        data.queryString.id.trim().length === 20
+            ? data.queryString.id.trim()
+            : false;
+
+    if (id) {
+        // Lookup the checks
+        _data.read("checks", id, (err, checkData) => {
+            if (!err && checkData) {
+                // Get token from Headers
+                const token =
+                    typeof data.headers.token === "string"
+                        ? data.headers.token
+                        : false;
+
+                // Verify token is valid for user
+                handlers._tokens.verifyToken(
+                    token,
+                    checkData.userPhone,
+                    (tokenIsValid) => {
+                        if (tokenIsValid) {
+                            // Delete the check data
+                            _data.delete("checks", id, (err) => {
+                                if (!err) {
+                                    // Lookup the user
+                                    _data.read(
+                                        "users",
+                                        checkData.userPhone,
+                                        (err, userData) => {
+                                            if (!err && userData) {
+                                                const userChecks =
+                                                    typeof userData.checks ===
+                                                        "object" &&
+                                                    userData.checks instanceof
+                                                        Array
+                                                        ? userData.checks
+                                                        : [];
+
+                                                // Remove check from user
+                                                const checkPosition =
+                                                    userChecks.indexOf(id);
+
+                                                if (checkPosition > -1) {
+                                                    userChecks.splice(
+                                                        checkPosition,
+                                                        1
+                                                    );
+
+                                                    // Re-save the user's data
+                                                    userData.checks =
+                                                        userChecks;
+                                                    _data.update(
+                                                        "users",
+                                                        checkData.userPhone,
+                                                        userData,
+                                                        (err) => {
+                                                            if (!err) {
+                                                                callback(200);
+                                                            } else {
+                                                                callback(500, {
+                                                                    Error: "Can't update the user",
+                                                                });
+                                                            }
+                                                        }
+                                                    );
+                                                } else {
+                                                    callback(500, {
+                                                        Error: "Can't find check on user, can't remove it",
+                                                    });
+                                                }
+                                            } else {
+                                                callback(500, {
+                                                    Error: "Can't find user of the check, can't remove check of that user",
+                                                });
+                                            }
+                                        }
+                                    );
+                                } else {
+                                    callback(500, {
+                                        Error: "Unable to delete the check",
+                                    });
+                                }
+                            });
+                        } else {
+                            callback(403, {
+                                Error: "Token is missing or invalid",
+                            });
+                        }
+                    }
+                );
+            } else {
+                callback(400, { Error: "Check does not exists" });
+            }
+        });
+    } else {
+        callback(400, { Error: "Missing Check ID" });
+    }
+};
+
 // Not found handler
 handlers.notFound = (data, callback) => {
     callback(404);
