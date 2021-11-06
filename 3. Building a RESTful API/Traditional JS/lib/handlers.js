@@ -843,7 +843,7 @@ handlers._checks.delete = function (data, callback) {
     if (id) {
         // Lookup the check
         _data.read("checks", id, function (err, checkData) {
-            if ((!err, checkData)) {
+            if (!err && checkData) {
                 // Get token from headers
                 var token =
                     typeof data.headers.token == "string"
